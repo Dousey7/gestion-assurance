@@ -1,7 +1,9 @@
+
+# Fichiers inutiles
+package.json
+package-lock.json
 node_modules/
-dist/
-build/
-*.exe
-*.pyc
+test_connexion.py
+clients.csv
 __pycache__/
-.DS_Store
+*.pyc
