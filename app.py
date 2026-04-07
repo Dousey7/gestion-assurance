@@ -258,7 +258,7 @@ def afficher_fiche_client(client, compagnies_df):
     
     with col4:
         st.markdown("### 💰 Finances")
-        st.write(f"**💶 Montant versé :** {client.get('montant_verse', 0):,.0f} €")
+        st.write(f"**💶 Montant versé :** {client.get('montant_verse', 0):,.0f} F.CFA")
         st.write(f"**🚗 Nom carte grise :** {client.get('nom_carte_grise', 'Non renseigné')}")
 
 def exporter_csv(df):
@@ -339,7 +339,7 @@ else:
         with col2:
             st.metric("✅ Clients actifs", clients_actifs)
         with col3:
-            st.metric("💰 Chiffre d'affaires", f"{montant_total:,.0f} €")
+            st.metric("💰 Chiffre d'affaires", f"{montant_total:,.0f} F.CFA")
         with col4:
             st.metric("⚠️ Échéances critiques", echeances_critiques)
         
@@ -467,7 +467,7 @@ else:
                     
                     with col2:
                         st.write(f"🏷️ {row['type_contrat']}")
-                        st.caption(f"💰 {row.get('montant_verse', 0):,.0f} €")
+                        st.caption(f"💰 {row.get('montant_verse', 0):,.0f} F.CFA")
                     
                     with col3:
                         st.write(f"📅 {row.get('date_echeance', 'Non renseignée')}")
@@ -551,7 +551,7 @@ else:
                 date_mise = st.date_input("Date mise en assurance", value=date_mise_default)
                 
                 duree = st.number_input("Durée (mois)", 1, 60, value=int(client_modif.get("duree_mois", 12)) if client_modif else 12)
-                montant = st.number_input("Montant versé (€)", 0.0, step=50.0, value=float(client_modif.get("montant_verse", 0)) if client_modif else 0.0)
+                montant = st.number_input("Montant versé (F.CFA)", 0.0, step=50.0, value=float(client_modif.get("montant_verse", 0)) if client_modif else 0.0)
                 
                 compagnie_options = ["-- Aucune --"] + df_compagnies["nom"].tolist() if not df_compagnies.empty else ["-- Aucune --"]
                 compagnie_actuelle = ""
@@ -718,8 +718,8 @@ else:
         
         with col2:
             if not df_clients.empty:
-                st.markdown(f"**💰 Montant total :** {df_clients['montant_verse'].sum():,.0f} €")
-                st.markdown(f"**📊 Moyenne par client :** {df_clients['montant_verse'].mean():,.0f} €")
+                st.markdown(f"**💰 Montant total :** {df_clients['montant_verse'].sum():,.0f} F.CFA")
+                st.markdown(f"**📊 Moyenne par client :** {df_clients['montant_verse'].mean():,.0f} F.CFA")
         
         st.markdown("---")
         st.markdown("### 📁 Export des données")
