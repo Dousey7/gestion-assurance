@@ -85,9 +85,17 @@ def load_data():
 
 def ajouter_client(client_data):
     """Ajoute un client dans Supabase"""
-    client_data["user_id"] = st.session_state["user_id"]
-    response = supabase.table("clients").insert(client_data).execute()
-    return response
+    try:
+        client_data["user_id"] = st.session_state["user_id"]
+        
+        # DEBUG : Affiche les données envoyées
+        st.write("📝 Données envoyées à Supabase :", client_data)
+        
+        response = supabase.table("clients").insert(client_data).execute()
+        return response
+    except Exception as e:
+        st.error(f"❌ Erreur détaillée : {e}")
+        return None
 
 def modifier_client(client_id, client_data):
     """Modifie un client dans Supabase"""
