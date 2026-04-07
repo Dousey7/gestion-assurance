@@ -4,10 +4,11 @@ from datetime import datetime, timedelta
 from supabase import create_client, Client
 
 # ------------------------------
-# CONFIGURATION SUPABASE
+# CONFIGURATION SUPABASE (SÉCURISÉE)
 # ------------------------------
-SUPABASE_URL = "https://tkouvrwpljbyfddmsxmv.supabase.co"
-SUPABASE_KEY = "sb_publishable_2xIkWATenKBZeT8lJYOOVg_d0ig21Yg"
+# Les vraies valeurs sont lues depuis les "secrets" du cloud
+SUPABASE_URL = st.secrets["supabase"]["url"]
+SUPABASE_KEY = st.secrets["supabase"]["key"]
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
