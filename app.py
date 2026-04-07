@@ -210,7 +210,6 @@ def afficher_fiche_client(client, compagnies_df):
     """Affiche la fiche détaillée d'un client"""
     st.markdown("---")
     
-    # En-tête avec statut
     echeance_info = get_echeance_status(client.get('date_echeance'))
     
     col1, col2 = st.columns([3, 1])
@@ -268,7 +267,7 @@ def exporter_csv(df):
     return csv
 
 # ------------------------------
-# INITIALISATION
+# INITIALISATION DE LA SESSION
 # ------------------------------
 if "authentifie" not in st.session_state:
     st.session_state["authentifie"] = False
@@ -276,6 +275,16 @@ if "user_id" not in st.session_state:
     st.session_state["user_id"] = None
 if "user_email" not in st.session_state:
     st.session_state["user_email"] = None
+if "client_a_modifier" not in st.session_state:
+    st.session_state["client_a_modifier"] = None
+if "client_a_supprimer" not in st.session_state:
+    st.session_state["client_a_supprimer"] = None
+if "compagnie_a_modifier" not in st.session_state:
+    st.session_state["compagnie_a_modifier"] = None
+if "afficher_fiche" not in st.session_state:
+    st.session_state["afficher_fiche"] = False
+if "client_a_voir" not in st.session_state:
+    st.session_state["client_a_voir"] = None
 
 # ------------------------------
 # AFFICHAGE PRINCIPAL
@@ -318,7 +327,6 @@ else:
         clients_actifs = len(df_clients[df_clients["statut"] == "Actif"]) if not df_clients.empty else 0
         montant_total = df_clients["montant_verse"].sum() if not df_clients.empty and "montant_verse" in df_clients else 0
         
-        # Compter les échéances critiques
         echeances_critiques = 0
         if not df_clients.empty and "date_echeance" in df_clients:
             for _, row in df_clients.iterrows():
@@ -327,13 +335,13 @@ else:
                     echeances_critiques += 1
         
         with col1:
-            st.metric("👥 Total clients", total_clients, delta=None)
+            st.metric("👥 Total clients", total_clients)
         with col2:
-            st.metric("✅ Clients actifs", clients_actifs, delta=None)
+            st.metric("✅ Clients actifs", clients_actifs)
         with col3:
-            st.metric("💰 Chiffre d'affaires", f"{montant_total:,.0f} €", delta=None)
+            st.metric("💰 Chiffre d'affaires", f"{montant_total:,.0f} €")
         with col4:
-            st.metric("⚠️ Échéances critiques", echeances_critiques, delta=None if echeances_critiques == 0 else "attention")
+            st.metric("⚠️ Échéances critiques", echeances_critiques)
         
         st.markdown("---")
         
@@ -406,7 +414,6 @@ else:
         df_filtre = df_clients.copy() if not df_clients.empty else pd.DataFrame()
         
         if not df_filtre.empty:
-            # Filtre recherche
             if recherche:
                 df_filtre = df_filtre[
                     df_filtre["nom_complet"].str.contains(recherche, case=False, na=False) |
@@ -414,11 +421,9 @@ else:
                     df_filtre["telephone"].astype(str).str.contains(recherche, case=False, na=False)
                 ]
             
-            # Filtre statut
             if filtre_statut != "Tous":
                 df_filtre = df_filtre[df_filtre["statut"] == filtre_statut]
             
-            # Filtre échéance
             if filtre_echeance != "Tous":
                 if filtre_echeance == "Expirés":
                     df_filtre = df_filtre[df_filtre["date_echeance"].apply(lambda x: get_echeance_status(x)["status"] == "Expiré")]
@@ -454,7 +459,7 @@ else:
                 echeance_info = get_echeance_status(row.get('date_echeance'))
                 
                 with st.container():
-                    col1, col2, col3, col4, col5 = st.columns([3, 2, 2, 1.5, 1])
+                    col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 1.5, 2, 1.5, 1, 1, 1])
                     
                     with col1:
                         st.markdown(f"**{row['nom_complet']}**")
@@ -482,77 +487,134 @@ else:
                             st.session_state["client_a_voir"] = row.to_dict()
                             st.session_state["afficher_fiche"] = True
                     
+                    with col6:
+                        if st.button("✏️ Modifier", key=f"edit_{row['id']}"):
+                            st.session_state["client_a_modifier"] = row.to_dict()
+                            st.session_state["menu"] = "➕ Nouveau client"
+                            st.rerun()
+                    
+                    with col7:
+                        if st.button("🗑️ Supprimer", key=f"del_{row['id']}"):
+                            st.session_state["client_a_supprimer"] = row.to_dict()
+                    
                     st.markdown("---")
         
-        # Afficher la fiche si demandée
-        if st.session_state.get("afficher_fiche", False):
-            afficher_fiche_client(st.session_state.get("client_a_voir", {}), df_compagnies)
+        # Confirmation de suppression
+        if st.session_state.get("client_a_supprimer"):
+            client = st.session_state["client_a_supprimer"]
+            st.warning(f"⚠️ Supprimer définitivement **{client['nom_complet']}** ? Cette action est irréversible.")
+            col_yes, col_no = st.columns(2)
+            with col_yes:
+                if st.button("✅ Oui, supprimer"):
+                    supprimer_client(client["id"])
+                    st.session_state["client_a_supprimer"] = None
+                    st.success(f"Client {client['nom_complet']} supprimé")
+                    st.rerun()
+            with col_no:
+                if st.button("❌ Non, annuler"):
+                    st.session_state["client_a_supprimer"] = None
+                    st.rerun()
+        
+        # Affichage de la fiche
+        if st.session_state.get("afficher_fiche", False) and st.session_state.get("client_a_voir"):
+            afficher_fiche_client(st.session_state["client_a_voir"], df_compagnies)
             if st.button("🔙 Fermer la fiche"):
                 st.session_state["afficher_fiche"] = False
+                st.session_state["client_a_voir"] = None
                 st.rerun()
     
-    # ==================== NOUVEAU CLIENT ====================
+    # ==================== NOUVEAU CLIENT / MODIFIER CLIENT ====================
     elif menu == "➕ Nouveau client":
-        st.markdown("# ➕ Nouveau client")
+        client_modif = st.session_state.get("client_a_modifier")
         
-        with st.form("client_form", clear_on_submit=True):
+        if client_modif:
+            st.markdown("# ✏️ Modifier un client")
+        else:
+            st.markdown("# ➕ Nouveau client")
+        
+        with st.form("client_form"):
             col1, col2 = st.columns(2)
             
             with col1:
-                nom = st.text_input("Nom complet*", placeholder="Jean Dupont")
-                email = st.text_input("Email*", placeholder="jean@exemple.com")
-                telephone = st.text_input("Téléphone", placeholder="06 12 34 56 78")
-                type_contrat = st.selectbox("Type contrat", ["Auto", "Habitation", "Santé", "Prévoyance"])
-                numero_contrat = st.text_input("Numéro de contrat", placeholder="ASS-2024-001")
+                nom = st.text_input("Nom complet*", value=client_modif.get("nom_complet", "") if client_modif else "")
+                email = st.text_input("Email*", value=client_modif.get("email", "") if client_modif else "")
+                telephone = st.text_input("Téléphone", value=client_modif.get("telephone", "") if client_modif else "")
+                type_contrat = st.selectbox("Type contrat", ["Auto", "Habitation", "Santé", "Prévoyance"],
+                    index=["Auto", "Habitation", "Santé", "Prévoyance"].index(client_modif.get("type_contrat", "Auto")) if client_modif and client_modif.get("type_contrat") in ["Auto", "Habitation", "Santé", "Prévoyance"] else 0)
+                numero_contrat = st.text_input("Numéro de contrat", value=client_modif.get("numero_contrat", "") if client_modif else "")
             
             with col2:
-                date_mise = st.date_input("Date mise en assurance", datetime.now().date())
-                duree = st.number_input("Durée (mois)", 1, 60, 12)
-                montant = st.number_input("Montant versé (€)", 0.0, step=50.0)
+                if client_modif and client_modif.get("date_mise_assurance"):
+                    date_mise_default = pd.to_datetime(client_modif["date_mise_assurance"]).date()
+                else:
+                    date_mise_default = datetime.now().date()
+                date_mise = st.date_input("Date mise en assurance", value=date_mise_default)
+                
+                duree = st.number_input("Durée (mois)", 1, 60, value=int(client_modif.get("duree_mois", 12)) if client_modif else 12)
+                montant = st.number_input("Montant versé (€)", 0.0, step=50.0, value=float(client_modif.get("montant_verse", 0)) if client_modif else 0.0)
                 
                 compagnie_options = ["-- Aucune --"] + df_compagnies["nom"].tolist() if not df_compagnies.empty else ["-- Aucune --"]
-                compagnie_nom = st.selectbox("Compagnie d'assurance", compagnie_options)
+                compagnie_actuelle = ""
+                if client_modif and client_modif.get("compagnie_id") and not df_compagnies.empty:
+                    comp = df_compagnies[df_compagnies["id"] == client_modif["compagnie_id"]]
+                    if not comp.empty:
+                        compagnie_actuelle = comp.iloc[0]["nom"]
+                compagnie_nom = st.selectbox("Compagnie d'assurance", compagnie_options,
+                    index=compagnie_options.index(compagnie_actuelle) if compagnie_actuelle in compagnie_options else 0)
                 
-                nom_carte_grise = st.text_input("Nom sur carte grise", placeholder="Uniquement pour auto")
-                statut = st.selectbox("Statut", ["Actif", "En relance", "Expiré"])
-                notes = st.text_area("Notes", height=100, placeholder="Informations complémentaires...")
+                nom_carte_grise = st.text_input("Nom sur carte grise", value=client_modif.get("nom_carte_grise", "") if client_modif else "")
+                statut = st.selectbox("Statut", ["Actif", "En relance", "Expiré"],
+                    index=["Actif", "En relance", "Expiré"].index(client_modif.get("statut", "Actif")) if client_modif else 0)
+                notes = st.text_area("Notes", value=client_modif.get("notes", "") if client_modif else "", height=100)
             
-            # Aperçu échéance
             echeance_apercu = calculer_echeance(date_mise, duree)
             if echeance_apercu:
                 st.info(f"📅 **Date d'échéance automatique :** {echeance_apercu.strftime('%d/%m/%Y')}")
             
-            if st.form_submit_button("✅ Enregistrer le client", use_container_width=True):
-                if not nom or not email:
-                    st.error("Le nom et l'email sont obligatoires")
-                else:
-                    echeance = calculer_echeance(date_mise, duree)
-                    
-                    compagnie_id = None
-                    if compagnie_nom != "-- Aucune --" and not df_compagnies.empty:
-                        comp = df_compagnies[df_compagnies["nom"] == compagnie_nom]
-                        if not comp.empty:
-                            compagnie_id = int(comp.iloc[0]["id"])
-                    
-                    client_data = {
-                        "nom_complet": nom,
-                        "email": email,
-                        "telephone": telephone if telephone else None,
-                        "type_contrat": type_contrat,
-                        "numero_contrat": numero_contrat if numero_contrat else None,
-                        "date_mise_assurance": str(date_mise),
-                        "duree_mois": duree,
-                        "date_echeance": str(echeance) if echeance else None,
-                        "montant_verse": float(montant),
-                        "compagnie_id": compagnie_id,
-                        "nom_carte_grise": nom_carte_grise if nom_carte_grise else None,
-                        "statut": statut,
-                        "notes": notes if notes else None
-                    }
-                    
-                    ajouter_client(client_data)
-                    st.success(f"✅ Client {nom} ajouté avec succès !")
-                    st.balloons()
+            col_btn1, col_btn2 = st.columns(2)
+            with col_btn1:
+                if st.form_submit_button("✅ Enregistrer", use_container_width=True):
+                    if not nom or not email:
+                        st.error("Le nom et l'email sont obligatoires")
+                    else:
+                        echeance = calculer_echeance(date_mise, duree)
+                        
+                        compagnie_id = None
+                        if compagnie_nom != "-- Aucune --" and not df_compagnies.empty:
+                            comp = df_compagnies[df_compagnies["nom"] == compagnie_nom]
+                            if not comp.empty:
+                                compagnie_id = int(comp.iloc[0]["id"])
+                        
+                        client_data = {
+                            "nom_complet": nom,
+                            "email": email,
+                            "telephone": telephone if telephone else None,
+                            "type_contrat": type_contrat,
+                            "numero_contrat": numero_contrat if numero_contrat else None,
+                            "date_mise_assurance": str(date_mise),
+                            "duree_mois": duree,
+                            "date_echeance": str(echeance) if echeance else None,
+                            "montant_verse": float(montant),
+                            "compagnie_id": compagnie_id,
+                            "nom_carte_grise": nom_carte_grise if nom_carte_grise else None,
+                            "statut": statut,
+                            "notes": notes if notes else None
+                        }
+                        
+                        if client_modif:
+                            modifier_client(client_modif["id"], client_data)
+                            st.success("✅ Client modifié avec succès !")
+                            st.session_state["client_a_modifier"] = None
+                        else:
+                            ajouter_client(client_data)
+                            st.success("✅ Client ajouté avec succès !")
+                            st.balloons()
+                        
+                        st.rerun()
+            
+            with col_btn2:
+                if st.form_submit_button("❌ Annuler", use_container_width=True):
+                    st.session_state["client_a_modifier"] = None
                     st.rerun()
     
     # ==================== COMPAGNIES ====================
@@ -578,10 +640,16 @@ else:
                             if row.get('notes'):
                                 st.write(f"📝 **Notes :** {row['notes']}")
                         with col2:
-                            if st.button("🗑️ Supprimer", key=f"del_comp_{row['id']}"):
-                                supprimer_compagnie(row['id'])
-                                st.success(f"Compagnie {row['nom']} supprimée")
-                                st.rerun()
+                            col_edit, col_del = st.columns(2)
+                            with col_edit:
+                                if st.button("✏️ Modifier", key=f"edit_comp_{row['id']}"):
+                                    st.session_state["compagnie_a_modifier"] = row.to_dict()
+                                    st.rerun()
+                            with col_del:
+                                if st.button("🗑️ Supprimer", key=f"del_comp_{row['id']}"):
+                                    supprimer_compagnie(row['id'])
+                                    st.success(f"Compagnie {row['nom']} supprimée")
+                                    st.rerun()
         
         with tab2:
             with st.form("add_compagnie_form"):
@@ -604,6 +672,37 @@ else:
                         })
                         st.success(f"✅ Compagnie {nom} ajoutée !")
                         st.rerun()
+        
+        # Formulaire de modification de compagnie
+        if st.session_state.get("compagnie_a_modifier"):
+            comp = st.session_state["compagnie_a_modifier"]
+            st.markdown("---")
+            st.markdown(f"### ✏️ Modifier {comp['nom']}")
+            
+            with st.form("edit_compagnie_form"):
+                nom = st.text_input("Nom", value=comp.get("nom", ""))
+                adresse = st.text_input("Adresse", value=comp.get("adresse", ""))
+                telephone = st.text_input("Téléphone", value=comp.get("telephone", ""))
+                email_comp = st.text_input("Email", value=comp.get("email", ""))
+                notes = st.text_area("Notes", value=comp.get("notes", ""), height=100)
+                
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    if st.form_submit_button("💾 Sauvegarder"):
+                        modifier_compagnie(comp["id"], {
+                            "nom": nom,
+                            "adresse": adresse if adresse else None,
+                            "telephone": telephone if telephone else None,
+                            "email": email_comp if email_comp else None,
+                            "notes": notes if notes else None
+                        })
+                        st.success("✅ Compagnie modifiée !")
+                        st.session_state["compagnie_a_modifier"] = None
+                        st.rerun()
+                with col_btn2:
+                    if st.form_submit_button("❌ Annuler"):
+                        st.session_state["compagnie_a_modifier"] = None
+                        st.rerun()
     
     # ==================== PARAMÈTRES ====================
     elif menu == "⚙️ Paramètres":
@@ -623,19 +722,42 @@ else:
                 st.markdown(f"**📊 Moyenne par client :** {df_clients['montant_verse'].mean():,.0f} €")
         
         st.markdown("---")
+        st.markdown("### 📁 Export des données")
+        
+        if not df_clients.empty:
+            csv_data = exporter_csv(df_clients)
+            st.download_button(
+                label="📥 Exporter tous les clients en CSV",
+                data=csv_data,
+                file_name=f"tous_les_clients_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        
+        st.markdown("---")
         st.markdown("### 🗑️ Zone dangereuse")
         
         if st.button("⚠️ Supprimer TOUTES les données (irréversible)", use_container_width=True):
             st.error("🔴 Action irréversible !")
             confirmation = st.text_input("Tapez 'CONFIRMER' pour supprimer toutes les données")
             if confirmation == "CONFIRMER":
-                # Supprimer tous les clients
                 if not df_clients.empty:
                     for _, row in df_clients.iterrows():
                         supprimer_client(row['id'])
-                # Supprimer toutes les compagnies
                 if not df_compagnies.empty:
                     for _, row in df_compagnies.iterrows():
                         supprimer_compagnie(row['id'])
-                st.success("Toutes les données ont été supprimées")
+                st.success("✅ Toutes les données ont été supprimées")
                 st.rerun()
+        
+        st.markdown("---")
+        st.markdown("### ℹ️ À propos")
+        st.markdown("""
+        **Application de gestion clients pour assurance**
+        
+        - Version : 1.0.0
+        - Base de données : Supabase
+        - Déploiement : Streamlit Cloud
+        
+        © 2024 - Gestion Assurance Pro
+        """)
